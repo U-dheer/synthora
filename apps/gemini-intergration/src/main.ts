@@ -13,10 +13,16 @@ async function bootstrap() {
     }),
   );
 
-  const port = Number(process.env.PORT) || 3000;
-  Logger.log(`Server starting on http://localhost:${port}`, 'Bootstrap');
+  if (!process.env.PORT) {
+    throw new Error('PORT environment variable is not defined');
+  }
 
-  await app.listen(port);
+  Logger.log(
+    `Server starting on http://localhost:${process.env.PORT}`,
+    'Bootstrap',
+  );
+
+  await app.listen(process.env.PORT);
 }
 
 bootstrap();

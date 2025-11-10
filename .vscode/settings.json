@@ -1,0 +1,12 @@
+{
+  "python.pythonPath": "apps/ai-summerizer/.venv/bin/python",
+  "python.defaultInterpreterPath": "apps/ai-summerizer/.venv",
+  "python.venvPath": "apps/ai-summerizer/.venv",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.formatting.provider": "black",
+  "python.analysis.extraPaths": ["apps/ai-summerizer/"],
+  "editor.formatOnSave": true,
+  "python.testing.unittestEnabled": true,
+  "python.testing.pytestEnabled": false
+}

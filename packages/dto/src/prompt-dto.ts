@@ -1,6 +1,6 @@
 import { IsOptional, IsArray, IsObject, IsString } from "class-validator";
 
-export class CreateGeminiDto {
+export class PromptDto {
   @IsOptional()
   @IsArray()
   responses?: any[];

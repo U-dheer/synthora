@@ -1,0 +1,8 @@
+{
+  "name": "ai-summerizer",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev": ".venv/bin/python -m uvicorn main:app --reload --port 3005"
+  }
+}

@@ -23,82 +23,12 @@
 
 ## Description
 
-Cohere AI Integration Service - A NestJS microservice for integrating with Cohere's AI API.
-
-## Features
-
-- ✨ Easy integration with Cohere AI API
-- 🚀 RESTful API endpoint for AI chat completions
-- 🔒 Environment-based configuration
-- 📝 Supports multiple input formats (input, prompt, messages)
-- ✅ Built with NestJS and TypeScript
+[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
 ## Project setup
 
 ```bash
 $ npm install
-```
-
-## Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-```env
-COHERE_API_KEY=your_cohere_api_key_here
-COHERE_MODEL=command-r-plus-08-2024  # Optional, defaults to command-r-plus-08-2024
-PORT=3000  # Optional, defaults to 3000
-```
-
-## API Usage
-
-### POST /cohere/make
-
-Generate a response from Cohere AI based on user input.
-
-**Request Body:**
-
-```json
-{
-  "input": "What is the capital of France?"
-}
-```
-
-Or using prompt:
-
-```json
-{
-  "prompt": "Explain quantum computing in simple terms"
-}
-```
-
-Or using messages array:
-
-```json
-{
-  "messages": [
-    { "content": "Hello, how are you?" }
-  ]
-}
-```
-
-Or return predefined responses:
-
-```json
-{
-  "response": "This is a predefined response"
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "response": "Paris is the capital of France.",
-  "generationId": "...",
-  "finishReason": "COMPLETE",
-  "meta": { ... }
-}
 ```
 
 ## Compile and run the project

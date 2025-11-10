@@ -11,6 +11,11 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-  await app.listen(process.env.PORT ?? 3000);
+
+  if (!process.env.PORT) {
+    throw new Error('PORT environment variable is not defined');
+  }
+
+  await app.listen(process.env.PORT);
 }
 bootstrap();

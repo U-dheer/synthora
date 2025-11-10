@@ -1,13 +1,13 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { GeminiService } from './gemini.service';
-import { CreateGeminiDto } from '@synthora/dto';
+import { PromptDto } from '@synthora/dto';
 
 @Controller('gemini')
 export class GeminiController {
   constructor(private readonly geminiService: GeminiService) {}
 
   @Post('make')
-  async make(@Body() body: CreateGeminiDto) {
+  async make(@Body() body: PromptDto) {
     return await this.geminiService.make(body);
   }
 }

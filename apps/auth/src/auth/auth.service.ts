@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { signUpDataDto } from './dtos/signUpData.Dto';
@@ -175,5 +176,29 @@ export class AuthService {
     await this.resetTokenModel.deleteOne({ _id: token._id });
 
     return { message: 'Password reset successfully' };
+  }
+
+  async validateToken(token: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync(token);
+      const user = await this.userModel
+        .findById(payload.userId)
+        .select('-password');
+
+      Logger.debug('Validated user:', user);
+      if (!user) {
+        throw new UnauthorizedException('Invalid token: user not found');
+      }
+      return { valid: true, user };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
+
+  async getMe(userId: string) {
+    if (!userId) throw new UnauthorizedException('User id missing');
+    const user = await this.userModel.findById(userId).select('-password');
+    if (!user) throw new BadRequestException('User not found');
+    return user;
   }
 }

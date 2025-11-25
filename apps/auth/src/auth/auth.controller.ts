@@ -18,6 +18,8 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { RequestUser } from 'src/decorators/request-user.decorator';
 import { ForgotPasswordDto } from './dtos/forgot-password.sto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
+import { post } from 'axios';
+import { ApiBody } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
@@ -28,6 +30,7 @@ export class AuthController {
     return this.authService.signUp(signUpData);
   }
 
+  @ApiBody({ type: loginDataDto })
   @Post('login')
   async login(@Body() Credentials: loginDataDto) {
     return this.authService.login(Credentials);
@@ -62,5 +65,16 @@ export class AuthController {
       resetPasswordDto.newPassword,
       resetPasswordDto.resetToken,
     );
+  }
+
+  @Post('validate')
+  async validateToken(@Body() tokenDto: { token: string }) {
+    return this.authService.validateToken(tokenDto.token);
+  }
+
+  @Get('me')
+  @UseGuards(AuthGuard)
+  async me(@RequestUser() userId: string) {
+    return this.authService.getMe(userId);
   }
 }

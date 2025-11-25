@@ -1,0 +1,38 @@
+# Core FastAPI
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pydantic-settings
+
+# HTTP client
+httpx
+tenacity
+
+# LangChain Core
+langchain
+langchain-community
+langchain-openai
+langchain-cohere
+langchain-huggingface
+langchain-text-splitters
+
+# Vector Stores
+faiss-cpu
+pinecone
+
+# Document Loaders - minimal
+pypdf
+python-docx
+beautifulsoup4
+lxml
+
+# Embeddings
+sentence-transformers
+
+# Utilities
+python-dotenv
+tiktoken
+
+# Logging
+python-json-logger

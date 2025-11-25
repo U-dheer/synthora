@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Headers } from '@nestjs/common';
 import { HuggingFaceService } from './hugging-face.service';
 import { PromptDto } from '@synthora/dto';
 
@@ -7,7 +7,10 @@ export class HuggingFaceController {
   constructor(private readonly huggingFaceService: HuggingFaceService) {}
 
   @Post('chat')
-  async generateChat(@Body() body: PromptDto) {
-    return this.huggingFaceService.generateCompletion(body);
+  async generateChat(
+    @Body() body: PromptDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.huggingFaceService.generateCompletion(body, authorization);
   }
 }

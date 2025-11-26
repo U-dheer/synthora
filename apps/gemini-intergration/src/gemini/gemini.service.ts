@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenAI } from '@google/genai';
+import { PromptDto } from '@synthora/dto';
 
 @Injectable()
 export class GeminiService {
@@ -31,13 +32,14 @@ export class GeminiService {
     }
   }
 
-  async make(payload: any): Promise<any> {
+  async make(payload: Partial<PromptDto>): Promise<any> {
     // Validate payload has required fields
     const hasContent =
       payload &&
       (payload.response !== undefined ||
         payload.responses !== undefined ||
         payload.input !== undefined ||
+        payload.context !== payload.context ||
         payload.messages !== undefined ||
         payload.prompt !== undefined);
 
@@ -75,7 +77,15 @@ export class GeminiService {
     const result = await this.googleAI.models.generateContent({
       model: this.model,
       contents: textInput,
+      config: {
+        systemInstruction: {
+          role: 'system',
+          text: payload.context || 'You are a helpful assistant.',
+        },
+      },
     });
+
+    console.log('Gemini API response:', result);
 
     return {
       success: true,

@@ -1,0 +1,433 @@
+{
+  "info": {
+    "name": "Synthora Gateway API",
+    "description": "API Gateway for Synthora AI Platform - Routes requests to AI services (Gemini, Cohere, Llama) with authentication and summarization",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3006",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Gateway Endpoints",
+      "item": [
+        {
+          "name": "AI Query - Gemini",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "description": "JWT token from auth service"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"gemini\",\n  \"prompt\": \"Explain quantum computing in simple terms\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/gateway/query",
+              "host": ["{{base_url}}"],
+              "path": ["gateway", "query"]
+            },
+            "description": "Send a query to Google's Gemini AI model. The response will be automatically summarized."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"model\": \"gemini\",\n  \"prompt\": \"Explain quantum computing\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/gateway/query",
+                  "host": ["{{base_url}}"],
+                  "path": ["gateway", "query"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"response\": \"Quantum computing uses quantum mechanics principles...\",\n    \"model\": \"gemini\",\n    \"timestamp\": \"2025-11-12T10:30:00.000Z\"\n  },\n  \"message\": \"Request processed successfully\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "AI Query - Cohere",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"cohere\",\n  \"prompt\": \"Write a short story about artificial intelligence\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/gateway/query",
+              "host": ["{{base_url}}"],
+              "path": ["gateway", "query"]
+            },
+            "description": "Send a query to Cohere AI model. The response will be automatically summarized."
+          },
+          "response": []
+        },
+        {
+          "name": "AI Query - Llama",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"llama\",\n  \"prompt\": \"What are the benefits of renewable energy?\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/gateway/query",
+              "host": ["{{base_url}}"],
+              "path": ["gateway", "query"]
+            },
+            "description": "Send a query to Llama AI model via Hugging Face. The response will be automatically summarized."
+          },
+          "response": []
+        }
+      ],
+      "description": "Main gateway endpoints for AI queries with authentication"
+    },
+    {
+      "name": "Error Examples",
+      "item": [
+        {
+          "name": "Invalid Model",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"invalid_model\",\n  \"prompt\": \"Test prompt\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/gateway/query",
+              "host": ["{{base_url}}"],
+              "path": ["gateway", "query"]
+            },
+            "description": "Example of validation error - invalid model name"
+          },
+          "response": [
+            {
+              "name": "Validation Error",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"model\": \"invalid_model\",\n  \"prompt\": \"Test\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/gateway/query",
+                  "host": ["{{base_url}}"],
+                  "path": ["gateway", "query"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"timestamp\": \"2025-11-12T10:30:00.000Z\",\n  \"path\": \"/gateway/query\",\n  \"method\": \"POST\",\n  \"message\": \"model must be one of the following values: gemini, cohere, llama\",\n  \"error\": \"Bad Request\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Missing Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"gemini\",\n  \"prompt\": \"Test prompt\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/gateway/query",
+              "host": ["{{base_url}}"],
+              "path": ["gateway", "query"]
+            },
+            "description": "Example of authentication error - no token provided"
+          },
+          "response": [
+            {
+              "name": "Unauthorized",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"model\": \"gemini\",\n  \"prompt\": \"Test\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/gateway/query",
+                  "host": ["{{base_url}}"],
+                  "path": ["gateway", "query"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"timestamp\": \"2025-11-12T10:30:00.000Z\",\n  \"path\": \"/gateway/query\",\n  \"method\": \"POST\",\n  \"message\": \"Invalid or missing authentication token\",\n  \"error\": \"Unauthorized\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Empty Prompt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"gemini\",\n  \"prompt\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/gateway/query",
+              "host": ["{{base_url}}"],
+              "path": ["gateway", "query"]
+            },
+            "description": "Example of validation error - empty prompt"
+          },
+          "response": []
+        }
+      ],
+      "description": "Examples of error responses for testing error handling"
+    },
+    {
+      "name": "Direct Service Access (Proxy)",
+      "item": [
+        {
+          "name": "Auth - Login (Proxy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login via proxy - forwards to auth service (port 3000)"
+          },
+          "response": []
+        },
+        {
+          "name": "Auth - Register (Proxy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"John Doe\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register via proxy - forwards to auth service (port 3000)"
+          },
+          "response": []
+        },
+        {
+          "name": "Gemini Direct (Proxy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Direct gemini query\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/gemini/generate",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "gemini", "generate"]
+            },
+            "description": "Direct access to Gemini service via proxy (port 3001)"
+          },
+          "response": []
+        },
+        {
+          "name": "Cohere Direct (Proxy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Direct cohere query\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/cohere/generate",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "cohere", "generate"]
+            },
+            "description": "Direct access to Cohere service via proxy (port 3002)"
+          },
+          "response": []
+        },
+        {
+          "name": "Llama Direct (Proxy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Direct llama query\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/llama/generate",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "llama", "generate"]
+            },
+            "description": "Direct access to Llama service via proxy (port 3004)"
+          },
+          "response": []
+        },
+        {
+          "name": "Summarizer Direct (Proxy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Long text to summarize...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai/summarize",
+              "host": ["{{base_url}}"],
+              "path": ["ai", "summarize"]
+            },
+            "description": "Direct access to Summarizer service via proxy (port 3005)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Direct access to backend services through proxy middleware"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// You can add pre-request scripts here",
+          "// Example: Refresh token if expired",
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test scripts",
+          "pm.test('Response time is less than 5000ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "",
+          "pm.test('Content-Type is application/json', function () {",
+          "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+          "});",
+          ""
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,473 @@
+{
+  "info": {
+    "name": "Synthora - Gateway (Complete)",
+    "_postman_id": "synthora-gateway-complete-2025",
+    "description": "Gateway-only collection including auth, document ingestion (upload / url / text), queries (general + document-specific), summarizer and direct LLM calls. All requests target the Gateway base URL ({{gateway_url}}).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Sign Up",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{gateway_url}}/auth/signup",
+              "host": ["{{gateway_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"test@example.com\",\n  \"password\": \"pass1234\",\n  \"confirmPassword\": \"pass1234\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{gateway_url}}/auth/login",
+              "host": ["{{gateway_url}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"pass1234\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Refresh Tokens",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{gateway_url}}/auth/refresh",
+              "host": ["{{gateway_url}}"],
+              "path": ["auth", "refresh"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{gateway_url}}/auth/forgot-password",
+              "host": ["{{gateway_url}}"],
+              "path": ["auth", "forgot-password"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{gateway_url}}/auth/reset-password",
+              "host": ["{{gateway_url}}"],
+              "path": ["auth", "reset-password"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"newpass123\",\n  \"resetToken\": \"<reset-token>\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Validate Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{gateway_url}}/auth/validate",
+              "host": ["{{gateway_url}}"],
+              "path": ["auth", "validate"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{auth_token}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Me (protected)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/auth/me",
+              "host": ["{{gateway_url}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Change Password (protected)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/auth/change-password",
+              "host": ["{{gateway_url}}"],
+              "path": ["auth", "change-password"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"oldpass123\",\n  \"newPassword\": \"newpass123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Documents (RAG)",
+      "item": [
+        {
+          "name": "Upload Document (multipart)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/rag/documents/upload",
+              "host": ["{{gateway_url}}"],
+              "path": ["rag", "documents", "upload"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "<path/to/file.pdf>" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add URL (scrape & ingest)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/rag/documents/add-url",
+              "host": ["{{gateway_url}}"],
+              "path": ["rag", "documents", "add-url"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://example.com/article-about-sri-lanka\",\n  \"metadata\": { \"source\": \"example.com\" }\n}"
+            }
+          }
+        },
+        {
+          "name": "Add Text (direct ingest)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/rag/documents/text",
+              "host": ["{{gateway_url}}"],
+              "path": ["rag", "documents", "text"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This is some text content to ingest into the KB.\",\n  \"metadata\": { \"source\": \"manual\" }\n}"
+            }
+          }
+        },
+        {
+          "name": "List Documents",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/rag/documents",
+              "host": ["{{gateway_url}}"],
+              "path": ["rag", "documents"]
+            }
+          }
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/rag/documents/{{document_id}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["rag", "documents", "{{document_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Queries (RAG)",
+      "item": [
+        {
+          "name": "Document-specific Query",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/rag/query/document-specific",
+              "host": ["{{gateway_url}}"],
+              "path": ["rag", "query", "document-specific"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"document_id\": \"{{document_id}}\",\n  \"question\": \"Give me a concise summary of this document.\",\n  \"top_k\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "General Query",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/rag/query",
+              "host": ["{{gateway_url}}"],
+              "path": ["rag", "query"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"What is the population of Sri Lanka?\",\n  \"top_k\": 5\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Summarizer",
+      "item": [
+        {
+          "name": "Summarize - AI Prompts",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/summarize/api/summarize/ai-prompts",
+              "host": ["{{gateway_url}}"],
+              "path": ["summarize", "api", "summarize", "ai-prompts"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ai1\": \"Response from ai1...\",\n  \"ai2\": \"Response from ai2...\",\n  \"ai3\": \"Response from ai3...\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Summarize - Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/summarize/api/summarize/text",
+              "host": ["{{gateway_url}}"],
+              "path": ["summarize", "api", "summarize", "text"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Long text to summarize...\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Direct LLM Calls",
+      "item": [
+        {
+          "name": "Gemini - Make",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/gemini/gemini/make",
+              "host": ["{{gateway_url}}"],
+              "path": ["gemini", "gemini", "make"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Summarize the following context: ...\",\n  \"context\": \"...context...\"\n}"
+            },
+            "event": [
+              {
+                "listen": "prerequest",
+                "script": {
+                  "exec": [
+                    "const userToken = pm.environment.get('auth_token');",
+                    "const llmKey = pm.environment.get('GEMINI_API_KEY');",
+                    "const llmHeader = pm.environment.get('GEMINI_API_KEY_HEADER') || 'Authorization';",
+                    "if (userToken) pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + userToken });",
+                    "if (llmKey) {",
+                    "  if (String(llmHeader).toLowerCase() === 'authorization') {",
+                    "    pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + llmKey });",
+                    "  } else {",
+                    "    pm.request.headers.upsert({ key: llmHeader, value: llmKey });",
+                    "  }",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "Llama - HuggingFace Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/llama/hugging-face/chat",
+              "host": ["{{gateway_url}}"],
+              "path": ["llama", "hugging-face", "chat"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Answer from this context...\",\n  \"context\": \"...context...\"\n}"
+            },
+            "event": [
+              {
+                "listen": "prerequest",
+                "script": {
+                  "exec": [
+                    "const userToken = pm.environment.get('auth_token');",
+                    "const llmKey = pm.environment.get('LLAMA_API_KEY');",
+                    "const llmHeader = pm.environment.get('LLAMA_API_KEY_HEADER') || 'Authorization';",
+                    "if (userToken) pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + userToken });",
+                    "if (llmKey) {",
+                    "  if (String(llmHeader).toLowerCase() === 'authorization') {",
+                    "    pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + llmKey });",
+                    "  } else {",
+                    "    pm.request.headers.upsert({ key: llmHeader, value: llmKey });",
+                    "  }",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "Cohere - Make",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/cohere/cohere/make",
+              "host": ["{{gateway_url}}"],
+              "path": ["cohere", "cohere", "make"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Answer with a short summary...\",\n  \"context\": \"...context...\"\n}"
+            },
+            "event": [
+              {
+                "listen": "prerequest",
+                "script": {
+                  "exec": [
+                    "const userToken = pm.environment.get('auth_token');",
+                    "const llmKey = pm.environment.get('COHERE_API_KEY');",
+                    "const llmHeader = pm.environment.get('COHERE_API_KEY_HEADER') || 'Authorization';",
+                    "if (userToken) pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + userToken });",
+                    "if (llmKey) {",
+                    "  if (String(llmHeader).toLowerCase() === 'authorization') {",
+                    "    pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + llmKey });",
+                    "  } else {",
+                    "    pm.request.headers.upsert({ key: llmHeader, value: llmKey });",
+                    "  }",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Misc",
+      "item": [
+        {
+          "name": "Gateway - Ask AI",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/ask",
+              "host": ["{{gateway_url}}"],
+              "path": ["ask"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Tell me about Sri Lanka in one paragraph.\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "gateway_url", "value": "http://localhost:3006" },
+    { "key": "auth_token", "value": "" },
+    { "key": "refresh_token", "value": "" },
+    { "key": "document_id", "value": "" }
+  ]
+}

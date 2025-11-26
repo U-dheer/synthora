@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Headers } from '@nestjs/common';
 import { HuggingFaceService } from './hugging-face.service';
 import { PromptDto } from '@synthora/dto';
 

@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PromptDto } from '@synthora/dto';
 import { CohereClient } from 'cohere-ai';
 
 @Injectable()
@@ -9,11 +10,13 @@ export class CohereService {
 
   constructor(private readonly configService: ConfigService) {
     const cohereApiKey = this.configService.get<string>('COHERE_API_KEY');
-
+    const cohereModel = this.configService.get<string>('COHERE_MODEL');
     if (!cohereApiKey) {
       this.cohereClient = null;
-      this.model = 'command-r-plus-08-2024';
       return;
+    }
+    if (!cohereModel) {
+      this.model = 'command-r-plus-08-2024';
     }
 
     try {
@@ -34,7 +37,7 @@ export class CohereService {
     }
   }
 
-  async make(payload: any): Promise<any> {
+  async make(payload: Partial<PromptDto>): Promise<any> {
     // Validate payload has required fields
     const hasContent =
       payload &&
@@ -79,6 +82,12 @@ export class CohereService {
       const response = await this.cohereClient.chat({
         model: this.model,
         message: textInput,
+        chatHistory: [
+          {
+            role: 'SYSTEM',
+            message: payload.context || 'You are a helpful assistant.',
+          },
+        ],
       });
 
       return {

@@ -7,10 +7,7 @@ export class HuggingFaceController {
   constructor(private readonly huggingFaceService: HuggingFaceService) {}
 
   @Post('chat')
-  async generateChat(
-    @Body() body: PromptDto,
-    @Headers('authorization') authorization?: string,
-  ) {
-    return this.huggingFaceService.generateCompletion(body, authorization);
+  async generateChat(@Body() body: PromptDto) {
+    return this.huggingFaceService.generateCompletion(body);
   }
 }

@@ -14,37 +14,21 @@ export class HuggingFaceService {
     });
   }
 
-  /**
-   * Generate a chat completion.
-   * If `forwardedAuthorization` is provided (e.g. "Bearer hf_..."), it will be used
-   * for this single request instead of the configured `HF_TOKEN`.
-   */
-  async generateCompletion(
-    message: PromptDto,
-    forwardedAuthorization?: string,
-  ) {
+  async generateCompletion(message: PromptDto) {
     const model = this.configService.get<string>('HF_MODEL') as string;
 
-    // If a forwarded token is provided, strip the "Bearer " prefix and create
-    // a per-request client so we can call HF on behalf of the caller.
-    const tokenFromHeader = forwardedAuthorization
-      ? forwardedAuthorization.replace(/^Bearer\s+/i, '')
-      : undefined;
-
-    const client = tokenFromHeader
-      ? new OpenAI({
-          baseURL: 'https://router.huggingface.co/v1',
-          apiKey: tokenFromHeader,
-        })
-      : this.defaultClient;
-
+    const client = this.defaultClient;
     try {
       const chatCompletion = await client.chat.completions.create({
         model,
         messages: [
           {
-            content: message.input ?? message.prompt,
+            content: message.input ?? message.prompt ?? '',
             role: 'user',
+          },
+          {
+            role: 'system',
+            content: message.context ?? '',
           },
         ],
       });
@@ -57,13 +41,6 @@ export class HuggingFaceService {
     } catch (error: any) {
       const status = error?.response?.status;
       const hfData = error?.response?.data;
-
-      if (status === 403) {
-        return {
-          success: false,
-          error: `403 Forbidden from Hugging Face. This typically means the token does not have permission to use model ${model}. Token used: ${tokenFromHeader ? 'forwarded token' : 'configured HF_TOKEN'}. Details: ${JSON.stringify(hfData)}`,
-        };
-      }
 
       if (status) {
         return {

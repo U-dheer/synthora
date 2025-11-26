@@ -8,6 +8,7 @@ export class GeminiController {
 
   @Post('make')
   async make(@Body() body: PromptDto) {
+    console.log('Received Gemini make request with body:', body);
     return await this.geminiService.make(body);
   }
 }

@@ -2,6 +2,7 @@ import { Injectable, HttpException, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { resolveServiceUrl } from '../utils/url-resolver';
 import { ServicesConfig } from '../config/services.config';
+import { ContextWindowBuilder } from 'src/utils/context-window.util';
 
 // In-memory backoff tracking for Gemini quota errors
 let lastGemini429At = 0;
@@ -9,7 +10,7 @@ const GEMINI_BACKOFF_MS = 60 * 1000; // 60 seconds
 
 @Injectable()
 export class GatewayService {
-  async handleAIRequest(question: string, incomingHeaders?: any) {
+  async handleAIRequest(question: string) {
     try {
       console.log('Handling AI request for question:', question);
       console.log('Calling AI models...');
@@ -17,87 +18,21 @@ export class GatewayService {
       console.log('Cohere URL:', `${ServicesConfig.cohere}/cohere/make`);
       console.log('Llama URL:', `${ServicesConfig.llama}/hugging-face/chat`);
 
-      // Prepare the request body in the format expected by the AI services (PromptDto)
       const requestBody = { input: question };
 
-      // Call the three AI models concurrently but tolerate failures
-      // Build promises for each AI call, skipping Gemini if it's in backoff
-      const now = Date.now();
-      const geminiInBackoff = now - lastGemini429At < GEMINI_BACKOFF_MS;
-
-      // Build per-service outbound headers. If the gateway has an API key
-      // configured for the target LLM, prefer that key (Bearer) over the
-      // incoming user's Authorization header. This allows the gateway to
-      // authenticate to downstream LLM backends which expect a dedicated
-      // API key while still supporting per-user forwarding when keys are
-      // not configured.
-      const geminiKey = (ServicesConfig as any).geminiApiKey;
-      const geminiHeaderName =
-        (ServicesConfig as any).geminiApiKeyHeader || 'Authorization';
-      let geminiOutboundAuth: any = incomingHeaders?.authorization;
-      if (geminiKey) {
-        const headerLower = String(geminiHeaderName).toLowerCase();
-        geminiOutboundAuth =
-          headerLower === 'authorization' ? `Bearer ${geminiKey}` : geminiKey;
-      }
-
-      const geminiHeaders: any = {
-        'Content-Type': 'application/json',
-      };
-      if (geminiOutboundAuth)
-        geminiHeaders[geminiHeaderName] = geminiOutboundAuth;
-
-      const geminiPromise = geminiInBackoff
-        ? Promise.resolve({ data: null, skipped: true })
-        : axios.post(`${ServicesConfig.gemini}/gemini/make`, requestBody, {
-            headers: geminiHeaders,
-          });
-
-      const cohereKey = (ServicesConfig as any).cohereApiKey;
-      const cohereHeaderName =
-        (ServicesConfig as any).cohereApiKeyHeader || 'Authorization';
-      let cohereOutboundAuth: any = incomingHeaders?.authorization;
-      if (cohereKey) {
-        const headerLower = String(cohereHeaderName).toLowerCase();
-        cohereOutboundAuth =
-          headerLower === 'authorization' ? `Bearer ${cohereKey}` : cohereKey;
-      }
-
-      const cohereHeaders: any = {
-        'Content-Type': 'application/json',
-      };
-      if (cohereOutboundAuth)
-        cohereHeaders[cohereHeaderName] = cohereOutboundAuth;
-
-      const coherePromise = axios.post(
-        `${ServicesConfig.cohere}/cohere/make`,
+      const geminiPromise = await axios.post(
+        `${ServicesConfig.gemini}/gemini/make`,
         requestBody,
-        {
-          headers: cohereHeaders,
-        },
       );
 
-      const llamaKey = (ServicesConfig as any).llamaApiKey;
-      const llamaHeaderName =
-        (ServicesConfig as any).llamaApiKeyHeader || 'Authorization';
-      let llamaOutboundAuth: any = incomingHeaders?.authorization;
-      if (llamaKey) {
-        const headerLower = String(llamaHeaderName).toLowerCase();
-        llamaOutboundAuth =
-          headerLower === 'authorization' ? `Bearer ${llamaKey}` : llamaKey;
-      }
+      const coherePromise = await axios.post(
+        `${ServicesConfig.cohere}/cohere/make`,
+        requestBody,
+      );
 
-      const llamaHeaders: any = {
-        'Content-Type': 'application/json',
-      };
-      if (llamaOutboundAuth) llamaHeaders[llamaHeaderName] = llamaOutboundAuth;
-
-      const llamaPromise = axios.post(
+      const llamaPromise = await axios.post(
         `${ServicesConfig.llama}/hugging-face/chat`,
         requestBody,
-        {
-          headers: llamaHeaders,
-        },
       );
 
       const settled = await Promise.allSettled([
@@ -106,7 +41,6 @@ export class GatewayService {
         llamaPromise,
       ]);
 
-      // Normalize results: if a call failed, store the error instead of throwing
       const geminiRes =
         settled[0].status === 'fulfilled'
           ? settled[0].value
@@ -120,12 +54,10 @@ export class GatewayService {
           ? settled[2].value
           : { error: settled[2].reason };
 
-      // Cast to any for more ergonomic logging/inspection
       const geminiAny: any = geminiRes;
       const cohereAny: any = cohereRes;
       const llamaAny: any = llamaRes;
 
-      // If Gemini returned a quota error, enable short backoff
       try {
         const geminiErrorStatus =
           geminiAny?.error?.response?.status || geminiAny?.error?.status;
@@ -140,9 +72,7 @@ export class GatewayService {
         if (geminiAny?.skipped) {
           console.log('Gemini call skipped due to backoff');
         }
-      } catch (e) {
-        // ignore inspection errors
-      }
+      } catch (e) {}
 
       console.log('AI model call results:', {
         gemini: geminiAny.error
@@ -168,9 +98,6 @@ export class GatewayService {
       // Try to summarize, but if it fails, use the first AI response (Gemini)
       let summary;
       try {
-        // Send all to summarizer (note: the endpoint is /api/summarize/ai-prompts)
-        // The summarizer expects ai1, ai2, ai3 as strings
-        // Normalize summarizer base URL (strip any accidental '/summarize' suffix)
         const summarizerBase = (ServicesConfig.summarizer || '')
           .replace(/\/summarize\/?$/i, '')
           .replace(/\/$/, '');
@@ -195,13 +122,12 @@ export class GatewayService {
           },
         );
 
-        console.log('✅ Summarizer responded successfully!');
+        console.log('Summarizer responded successfully!');
         summary = summaryRes.data;
       } catch (summarizerError) {
         console.log(
-          '⚠️ Summarizer unavailable, using first available AI response',
+          ' Summarizer unavailable, using first available AI response',
         );
-        // Prefer a successful model in order: Cohere, Llama, Gemini
         let fallbackData: any = null;
         if (!cohereAny.error) fallbackData = cohereAny.data;
         else if (!llamaAny.error) fallbackData = llamaAny.data;
@@ -245,8 +171,6 @@ export class GatewayService {
       const serviceUrl = resolveServiceUrl(path);
       console.log('Resolved service URL:', serviceUrl);
 
-      // Remove the service prefix from the path to avoid duplication
-      // e.g., incoming path: /gemini/gemini/make -> forwarded path: /gemini/make
       let forwardedPath = path;
       if (path.startsWith('/gemini')) {
         forwardedPath = path.replace(/^\/gemini/, '');
@@ -256,15 +180,9 @@ export class GatewayService {
         forwardedPath = path.replace(/^\/llama/, '');
       }
 
-      // Build candidate forwarded paths. To preserve backwards compatibility
-      // with deployments that mounted auth controllers either at `/auth` or
-      // at the root, attempt the original incoming path first and on a 404
-      // retry using the stripped '/auth' prefix. This avoids breaking the
-      // previous strip behavior while preferring the explicit path.
       const candidatePaths: string[] = [forwardedPath];
       if (path.startsWith('/auth')) {
         const stripped = path.replace(/^\/auth/, '') || '/';
-        // If stripped path is different, add as fallback
         if (stripped !== forwardedPath) candidatePaths.push(stripped);
       }
 
@@ -272,7 +190,6 @@ export class GatewayService {
         ? serviceUrl.slice(0, -1)
         : serviceUrl;
 
-      let lastError: any = null;
       for (const cand of candidatePaths) {
         const targetUrl = `${serviceUrlNormalized}${cand}`;
         console.log('Forwarding request to:', targetUrl);
@@ -280,18 +197,14 @@ export class GatewayService {
         console.log('Request body:', body);
         try {
           console.log('Making axios request...');
-          // Forward incoming headers where appropriate. Do not force
-          // application/json since that breaks multipart/form-data uploads.
           const forwardedHeaders: any = {
             Accept: headers?.['accept'] || '*/*',
-            // Forward authentication headers
             ...(headers?.['authorization'] && {
               Authorization: headers['authorization'],
             }),
             ...(headers?.['cookie'] && { Cookie: headers['cookie'] }),
           };
 
-          // Preserve Content-Type if provided (important for multipart)
           if (headers?.['content-type']) {
             forwardedHeaders['Content-Type'] = headers['content-type'];
           }
@@ -301,101 +214,43 @@ export class GatewayService {
             url: targetUrl,
             data: body,
             headers: forwardedHeaders,
-            timeout: 30000, // 30 second timeout for better debugging
-            // Allow large bodies when forwarding files
+            timeout: 30000,
             maxBodyLength: Infinity,
             maxContentLength: Infinity,
           });
 
           console.log('Response received from target service:', response.data);
-          // Successful response, proceed as before
-          // Special handling for RAG queries with no knowledge base data
-          if (
-            path.includes('/rag/query') &&
-            response.data.no_kb_data === true
-          ) {
-            console.log(
-              '⚠️ No knowledge base data found - orchestrating AI models...',
-            );
-            const question = body?.question || body?.query;
 
-            if (!question) {
-              return response.data;
-            }
+          const question = body?.question || body?.query;
 
-            try {
-              // Call the 3 AI models and get summarized response
-              const aiResponse = await this.handleAIRequest(question, headers);
-
-              // Store the summarized response in vector DB via RAG service
-              console.log('📝 Storing AI response in knowledge base...');
-              await axios
-                .post(`${serviceUrl}/rag/documents/text`, {
-                  content: aiResponse.summary,
-                  metadata: {
-                    source: 'ai_generated',
-                    question: question,
-                    timestamp: new Date().toISOString(),
-                    models_used: ['gemini', 'cohere', 'llama'],
-                  },
-                })
-                .catch((err) => {
-                  console.error('⚠️ Failed to store in KB:', err.message);
-                  // Don't fail the request if storage fails
-                });
-
-              // Return the AI-generated response to user
-              return {
-                answer: aiResponse.summary,
-                query_type: 'ai_generated',
-                retrieved_contexts: [],
-                llm_responses: [
-                  { service: 'gemini', response: aiResponse.rawResponses.ai1 },
-                  { service: 'cohere', response: aiResponse.rawResponses.ai2 },
-                  { service: 'llama', response: aiResponse.rawResponses.ai3 },
-                ],
-                processing_time_seconds: 0,
-                timestamp: new Date().toISOString(),
-              };
-            } catch (aiError) {
-              console.error('❌ AI orchestration failed:', aiError.message);
-              // Return original RAG response if AI fails
-              return response.data;
-            }
+          if (!question) {
+            return response.data;
           }
 
-          return response.data;
+          try {
+            const aiResponse = await this.handleAIRequest(question);
+
+            return {
+              answer: aiResponse.summary,
+              query_type: 'ai_generated',
+              retrieved_contexts: [],
+              llm_responses: [
+                { service: 'gemini', response: aiResponse.rawResponses.ai1 },
+                { service: 'cohere', response: aiResponse.rawResponses.ai2 },
+                { service: 'llama', response: aiResponse.rawResponses.ai3 },
+              ],
+              processing_time_seconds: 0,
+              timestamp: new Date().toISOString(),
+            };
+          } catch (aiError) {
+            console.error('AI orchestration failed:', aiError.message);
+            return response.data;
+          }
         } catch (error) {
-          lastError = error;
-          // If target responded 404, try the next candidate path; otherwise bubble up
-          const status = error?.response?.status;
-          console.error('Error forwarding to', targetUrl, 'status:', status);
-          if (status === 404) {
-            console.warn(
-              'Received 404 from target, trying next candidate path if available',
-            );
-            continue; // try next candidate
-          }
-          console.error('Error in forwardRequest:', error.message);
-          console.error('Error details:', error.response?.data);
-          console.error('Error status:', status);
-          console.error('Full error:', error);
-          throw new HttpException(
-            error.response?.data?.message || error.message,
-            status || 500,
-          );
+          console.error(`Error forwarding`, error.message);
+          continue;
         }
       }
-
-      // If we exit the loop with no successful response, throw last error
-      if (lastError) {
-        throw new HttpException(
-          lastError.response?.data?.message || lastError.message,
-          lastError.response?.status || 500,
-        );
-      }
-
-      // All forwarding attempts exhausted (either returned earlier or thrown)
     } catch (error) {
       console.error('Error in forwardRequest:', error.message);
       console.error('Error details:', error.response?.data);
@@ -406,5 +261,193 @@ export class GatewayService {
         error.response?.status || 500,
       );
     }
+  }
+
+  async handleAIStreamRequest(question: string, files?: any[]) {
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+
+        const sendEvent = (event: string, data: any) => {
+          const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          controller.enqueue(encoder.encode(message));
+        };
+
+        // Accumulate all responses
+        const responses: any = {
+          gemini_res: null,
+          cohere_res: null,
+          llama_res: null,
+          summary: null,
+        };
+
+        try {
+          console.log('Starting streaming AI request for question:', question);
+
+          const context = new ContextWindowBuilder()
+            .setSystemPrompt(
+              `
+You are a helpful and reliable AI assistant.
+
+You MUST use the information provided in the "UPLOADED FILE CONTENT" section as your primary reference when answering the user's question. Treat these RAG chunks as authoritative context.
+
+Rules:
+1. If the uploaded content contains information relevant to the user's question, use it to generate a clear and accurate answer.
+2. If the uploaded content does NOT contain information relevant to the user's question, respond by saying:
+   "I can help you with that, but the uploaded content does not contain information related to your question."
+3. Do NOT hallucinate or invent facts not supported by the uploaded content.
+4. If additional information is needed to answer properly, state what is missing.
+5. Always keep responses grounded, clear, and directly focused on the user's question.
+
+Your output should always rely strictly on the context unless it is missing.
+
+          `,
+            )
+            .addRagChunks([
+              'Sri Lanka,[a] officially the Democratic Socialist Republic of Sri Lanka, formerly known as Ceylon,[b] is an island country in South Asia. It is located in the Indian Ocean, southwest of the Bay of Bengal, and is separated from India by',
+              'is separated from India by the Gulf of Mannar and the Palk Strait. It shares a maritime border with the Maldives in the southwest and India in the northwest, and it lies across the Bay of Bengal from Bangladesh and',
+              'of Bengal from Bangladesh and Myanmar in the northeast and the Andaman and Nicobar Islands in the east. Sri Jayawardenepura Kotte is the legislative capital of Sri Lanka, while the largest city, Colombo, is the administrative and judicial capital which',
+              "administrative and judicial capital which is the nation's political, financial and cultural centre. Kandy is the second-largest city and also the capital of the last native kingdom of Sri Lanka. The majority of the population speak Sinhala, while Tamil is",
+              'speak Sinhala, while Tamil is the second most-spoken language. They are spoken by approximately 17 million and 5 million people respectively.',
+            ] as string[])
+            .build();
+
+          console.log('context', context);
+
+          const requestBody = { input: question, context: context };
+
+          // Call Gemini
+          sendEvent('status', { model: 'gemini', status: 'requesting gemini' });
+          try {
+            const geminiRes = await axios.post(
+              `${ServicesConfig.gemini}/gemini/make`,
+              requestBody,
+            );
+            responses.gemini_res = geminiRes.data;
+            sendEvent('status', { model: 'gemini', status: 'completed' });
+          } catch (geminiError: any) {
+            const geminiErrorStatus =
+              geminiError?.response?.status || geminiError?.status;
+            if (geminiErrorStatus === 429) {
+              lastGemini429At = Date.now();
+              console.log('Gemini returned 429 -> enabling backoff');
+            }
+            responses.gemini_res = {
+              error: geminiError.message || 'Request failed',
+            };
+            sendEvent('status', { model: 'gemini', status: 'failed' });
+          }
+
+          // Call Cohere
+          sendEvent('status', { model: 'cohere', status: 'requesting cohere' });
+          try {
+            const cohereRes = await axios.post(
+              `${ServicesConfig.cohere}/cohere/make`,
+              requestBody,
+            );
+            responses.cohere_res = cohereRes.data;
+            sendEvent('status', { model: 'cohere', status: 'completed' });
+          } catch (cohereError: any) {
+            responses.cohere_res = {
+              error: cohereError.message || 'Request failed',
+            };
+            sendEvent('status', { model: 'cohere', status: 'failed' });
+          }
+
+          // Call Llama
+          sendEvent('status', { model: 'llama', status: 'requesting llama' });
+          try {
+            const llamaRes = await axios.post(
+              `${ServicesConfig.llama}/hugging-face/chat`,
+              requestBody,
+            );
+            responses.llama_res = llamaRes.data;
+            sendEvent('status', { model: 'llama', status: 'completed' });
+          } catch (llamaError: any) {
+            responses.llama_res = {
+              error: llamaError.message || 'Request failed',
+            };
+            sendEvent('status', { model: 'llama', status: 'failed' });
+          }
+
+          // Call Summarizer
+          sendEvent('status', {
+            model: 'summarizer',
+            status: 'requesting summarizer',
+          });
+          try {
+            const summarizerBase = (ServicesConfig.summarizer || '')
+              .replace(/\/summarize\/?$/i, '')
+              .replace(/\/$/, '');
+
+            const summaryRes = await axios.post(
+              `${summarizerBase}/api/summarize/ai-prompts`,
+              {
+                ai1:
+                  typeof responses.gemini_res === 'string'
+                    ? responses.gemini_res
+                    : JSON.stringify(responses.gemini_res),
+                ai2:
+                  typeof responses.cohere_res === 'string'
+                    ? responses.cohere_res
+                    : JSON.stringify(responses.cohere_res),
+                ai3:
+                  typeof responses.llama_res === 'string'
+                    ? responses.llama_res
+                    : JSON.stringify(responses.llama_res),
+              },
+            );
+
+            responses.summary = summaryRes.data;
+            sendEvent('status', { model: 'summarizer', status: 'completed' });
+          } catch (summarizerError: any) {
+            console.log(
+              'Summarizer unavailable, using first available AI response',
+            );
+            // Fallback logic
+            let fallbackData: any = null;
+            if (!responses.cohere_res?.error)
+              fallbackData = responses.cohere_res;
+            else if (!responses.llama_res?.error)
+              fallbackData = responses.llama_res;
+            else if (!responses.gemini_res?.error)
+              fallbackData = responses.gemini_res;
+            else
+              fallbackData =
+                responses.gemini_res ||
+                responses.cohere_res ||
+                responses.llama_res;
+
+            if (fallbackData?.response) {
+              responses.summary = fallbackData.response;
+            } else if (fallbackData?.message?.content) {
+              responses.summary = fallbackData.message.content;
+            } else if (typeof fallbackData === 'string') {
+              responses.summary = fallbackData;
+            } else {
+              responses.summary = JSON.stringify(fallbackData);
+            }
+            sendEvent('status', { model: 'summarizer', status: 'failed' });
+          }
+
+          // Send complete data with all responses
+          sendEvent('complete', {
+            message: 'All AI models processed',
+            data: responses,
+          });
+          controller.close();
+        } catch (error: any) {
+          console.error('Error in handleAIStreamRequest:', error.message);
+          sendEvent('error', {
+            model: 'system',
+            error: error.message || 'Stream failed',
+            data: responses,
+          });
+          controller.close();
+        }
+      },
+    });
+
+    return stream;
   }
 }

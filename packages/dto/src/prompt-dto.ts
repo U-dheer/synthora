@@ -18,6 +18,9 @@ export class PromptDto {
   messages?: any[];
 
   @IsOptional()
-  @IsObject()
-  prompt?: any;
+  @IsString()
+  prompt?: string;
+
+  @IsString()
+  context?: string;
 }

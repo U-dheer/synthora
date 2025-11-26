@@ -16,8 +16,6 @@ export class GatewayAuthGuard implements CanActivate {
     const req = context.switchToHttp().getRequest();
     const authHeader = req.headers?.authorization || req.headers?.Authorization;
 
-    // Check public/whitelisted paths first. Support optional METHOD:pattern entries
-    // in ServicesConfig.publicPaths like `GET:/public/*` or `/auth/login`.
     const rawPath = req.url || req.originalUrl || req.path || '';
     const method = (req.method || 'GET').toUpperCase();
 
@@ -33,6 +31,15 @@ export class GatewayAuthGuard implements CanActivate {
       return path === pattern;
     };
 
+    // Explicitly allow signup/login/register endpoints without auth
+    if (
+      rawPath.startsWith('/auth/login') ||
+      rawPath.startsWith('/auth/signup') ||
+      rawPath.startsWith('/auth/register')
+    ) {
+      return true;
+    }
+
     for (const entry of publicPaths) {
       // allow entries like 'GET:/public/*' or just '/auth/login'
       const trimmed = (entry || '').trim();
@@ -47,29 +54,43 @@ export class GatewayAuthGuard implements CanActivate {
 
       if (entryMethod && entryMethod !== method) continue;
       if (pathMatches(pattern, rawPath)) {
-        // Public path - allow without auth
         return true;
       }
     }
 
-    // Not public - require Authorization header
-    if (!authHeader) {
-      throw new UnauthorizedException('Authorization header missing');
+    const getTokenFromRequest = (req: any): string | null => {
+      const header = req.headers?.authorization || req.headers?.Authorization;
+      if (header && typeof header === 'string') {
+        if (header.startsWith('Bearer ')) return header.slice(7);
+        return header;
+      }
+      if (req.headers && req.headers['x-access-token'])
+        return req.headers['x-access-token'];
+      if (req.cookies && req.cookies.access_token)
+        return req.cookies.access_token;
+      const cookieHeader = req.headers?.cookie;
+      if (cookieHeader && typeof cookieHeader === 'string') {
+        const m = cookieHeader.match(/(?:^|;\s*)access_token=([^;]+)/);
+        if (m) return decodeURIComponent(m[1]);
+      }
+      return null;
+    };
+
+    const token = getTokenFromRequest(req);
+    if (!token) {
+      throw new UnauthorizedException('Authorization token missing');
     }
-    // Shortcut: allow a pre-shared service token to authenticate internal
-    // service-to-gateway calls. This is useful for trusted internal services
-    // (like the RAG service) that cannot easily perform full user auth.
+
     const serviceSharedSecret = (ServicesConfig as any).serviceSharedSecret;
     if (serviceSharedSecret) {
-      const expected = `Bearer ${serviceSharedSecret}`;
-      if (authHeader === expected) {
-        // Mark request as coming from a trusted service
+      const expectedHeader = `Bearer ${serviceSharedSecret}`;
+      if (authHeader === expectedHeader || token === serviceSharedSecret) {
         req.userId = 'service';
+        req.user = { service: true };
         return true;
       }
     }
 
-    // Forward the exact Authorization header to the auth service's /auth/me
     if (!ServicesConfig.auth) {
       log.error('Auth service URL not configured (ServicesConfig.auth)');
       throw new UnauthorizedException('Auth service not available');
@@ -77,7 +98,7 @@ export class GatewayAuthGuard implements CanActivate {
 
     try {
       const resp = await axios.get(`${ServicesConfig.auth}/auth/me`, {
-        headers: { Authorization: authHeader },
+        headers: { Authorization: `Bearer ${token}` },
         timeout: 5000,
       });
 
@@ -86,7 +107,7 @@ export class GatewayAuthGuard implements CanActivate {
         throw new UnauthorizedException('User not found');
       }
 
-      // Attach resolved user id to request for downstream handlers/interceptors
+      req.user = user;
       req.userId = user._id ?? user.id ?? user.userId ?? null;
       return true;
     } catch (err: any) {

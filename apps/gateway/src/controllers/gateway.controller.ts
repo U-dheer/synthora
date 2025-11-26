@@ -10,25 +10,120 @@ import {
   Patch,
   UseInterceptors,
   UseGuards,
+  Res,
+  Sse,
+  MessageEvent,
+  UploadedFiles,
 } from '@nestjs/common';
 import { GatewayService } from '../services/gateway.service';
 import { AskAiDto } from '../dtos/ask-ai.dto';
 import { SaveChatInterceptor } from '../common/interceptors/save-chat.interceptor';
 import { GatewayAuthGuard } from '../guards/gateway-auth.guard';
+import { type Request, type Response } from 'express';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
 
 @Controller()
 @UseGuards(GatewayAuthGuard)
 export class GatewayController {
   constructor(private readonly gatewayService: GatewayService) {}
 
-  @Post('ask')
-  @UseInterceptors(SaveChatInterceptor)
-  async askAI(@Body() askAiDto: AskAiDto) {
-    console.log('Received askAI request:', askAiDto);
-    console.log('Question:', askAiDto.question);
+  // @Post('process')
+  // @UseInterceptors(AnyFilesInterceptor())
+  // async processRequest(
+  //   @UploadedFiles() files: any[],
+  //   @Req() req: Request,
+  // ) {
+  //   const hasDocumentFile = files?.some((file) =>
+  //     [
+  //       'application/pdf', // PDF
+  //       'application/msword', // DOC
+  //       'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
+  //       'text/plain', // TXT
+  //     ].includes(file.mimetype),
+  //   );
 
-    if (!askAiDto.question) {
-      throw new Error('Question is required');
+  //   if (hasDocumentFile) {
+  //     // 👉 User uploaded pdf/doc/docx/txt → go to route A
+  //     return this.handleDocumentUpload(req, files);
+  //   }
+
+  //   // 👉 No document file uploaded → route B
+  //   return this.handleNormalRequest(req);
+  // }
+
+  // @Post('ask')
+  // @UseInterceptors(SaveChatInterceptor)
+  // async askAI(@Body() askAiDto: AskAiDto) {
+  //   return this.gatewayService.handleAIRequest(askAiDto.question);
+  // }
+
+  // @Post('stream')
+  // async streamAI(@Body() askAiDto: AskAiDto, @Res() res: Response) {
+  //   res.setHeader('Content-Type', 'text/event-stream');
+  //   res.setHeader('Cache-Control', 'no-cache');
+  //   res.setHeader('Connection', 'keep-alive');
+  //   res.setHeader('X-Accel-Buffering', 'no');
+
+  //   const stream = await this.gatewayService.handleAIStreamRequest(
+  //     askAiDto.question,
+  //   );
+  //   const reader = stream.getReader();
+
+  //   try {
+  //     while (true) {
+  //       const { done, value } = await reader.read();
+  //       if (done) break;
+  //       res.write(value);
+  //     }
+  //   } catch (error) {
+  //     console.error('Stream error:', error);
+  //   } finally {
+  //     res.end();
+  //   }
+  // }
+
+  @Post('ask')
+  @UseInterceptors(AnyFilesInterceptor())
+  async routeAI(
+    @UploadedFiles() files: any[],
+    @Body() askAiDto: AskAiDto,
+    @Res() res: Response,
+  ) {
+    const hasDocumentFile = files?.some((file) =>
+      [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+      ].includes(file.mimetype),
+    );
+
+    if (hasDocumentFile) {
+      // 👉 Route to streamAI logic
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+
+      const stream = await this.gatewayService.handleAIStreamRequest(
+        askAiDto.question,
+        files,
+      );
+
+      const reader = stream.getReader();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(value);
+        }
+      } catch (error) {
+        console.error('Stream error:', error);
+      } finally {
+        res.end();
+      }
+      return;
     }
 
     return this.gatewayService.handleAIRequest(askAiDto.question);
@@ -47,10 +142,6 @@ export class GatewayController {
 
   @Post('*')
   async forwardPost(@Req() req, @Body() body: any, @Headers() headers: any) {
-    // If the incoming request is multipart/form-data (file upload), pass
-    // the raw request stream through so the gateway forwards the multipart
-    // body and boundary correctly. For normal JSON requests, forward the
-    // parsed body as before.
     const contentType = headers?.['content-type'] || headers?.['Content-Type'];
     const isMultipart =
       contentType && contentType.includes('multipart/form-data');
